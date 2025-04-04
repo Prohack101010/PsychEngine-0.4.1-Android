@@ -3,7 +3,7 @@ package;
 #if desktop
 import Discord.DiscordClient;
 #end
-import flash.text.TextField;
+import openfl.text.TextField;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.addons.display.FlxGridOverlay;
@@ -13,7 +13,7 @@ import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import lime.utils.Assets;
 import flixel.FlxSubState;
-import flash.text.TextField;
+import openfl.text.TextField;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.util.FlxSave;
@@ -60,6 +60,14 @@ class OptionsState extends MusicBeatState
 		}
 		changeSelection();
 
+		var tipText:FlxText = new FlxText(10, 12, 0, 'Press X to Go Mobile Controls Menu\nPress Y to Go In Extra Key Return Menu', 16);
+		tipText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		tipText.borderSize = 2;
+		tipText.scrollFactor.set();
+		add(tipText);
+
+		addVirtualPad("UP_DOWN", "A_B_X_Y");
+
 		super.create();
 	}
 
@@ -67,6 +75,9 @@ class OptionsState extends MusicBeatState
 		super.closeSubState();
 		ClientPrefs.saveSettings();
 		changeSelection();
+		removeVirtualPad();
+		addVirtualPad("UP_DOWN", "A_B_X_Y");
+		persistentUpdate = true;
 	}
 
 	override function update(elapsed:Float) {
@@ -79,12 +90,26 @@ class OptionsState extends MusicBeatState
 			changeSelection(1);
 		}
 
+		if (_virtualpad.buttonX.justPressed) {
+			persistentUpdate = false;
+			removeVirtualPad();
+			openSubState(new MobileControlSelectSubState());
+		}
+
+		if (_virtualpad.buttonY.justPressed) {
+			persistentUpdate = false;
+			removeVirtualPad();
+			openSubState(new MobileExtraControl());
+		}
+
 		if (controls.BACK) {
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 			MusicBeatState.switchState(new MainMenuState());
 		}
 
 		if (controls.ACCEPT) {
+			persistentUpdate = false;
+			removeVirtualPad();
 			for (item in grpOptions.members) {
 				item.alpha = 0;
 			}
@@ -180,6 +205,7 @@ class NotesSubstate extends MusicBeatSubstate
 		hsvText = new Alphabet(0, 0, "Hue    Saturation  Brightness", false, false, 0, 0.65);
 		add(hsvText);
 		changeSelection();
+		addVirtualPad("FULL", "A_B_C");
 	}
 
 	var changingNote:Bool = false;
@@ -193,7 +219,7 @@ class NotesSubstate extends MusicBeatSubstate
 				} else if(controls.UI_RIGHT_P) {
 					updateValue(1);
 					FlxG.sound.play(Paths.sound('scrollMenu'));
-				} else if(controls.RESET) {
+				} else if(controls.RESET || _virtualpad.buttonC.justPressed) {
 					resetValue(curSelected, typeSelected);
 					FlxG.sound.play(Paths.sound('scrollMenu'));
 				}
@@ -234,7 +260,7 @@ class NotesSubstate extends MusicBeatSubstate
 				changeType(1);
 				FlxG.sound.play(Paths.sound('scrollMenu'));
 			}
-			if(controls.RESET) {
+			if(controls.RESET || _virtualpad.buttonC.justPressed) {
 				for (i in 0...3) {
 					resetValue(curSelected, i);
 				}
@@ -455,6 +481,7 @@ class ControlsSubstate extends MusicBeatSubstate {
 			}
 		}
 		changeSelection();
+		addVirtualPad("FULL", "A_B_C");
 	}
 
 	var leaving:Bool = false;
@@ -668,7 +695,13 @@ class PreferencesSubstate extends MusicBeatSubstate
 	];
 	static var noCheckbox:Array<String> = [
 		'Framerate',
-		'Note Delay'
+		'Note Delay',
+		'VirtualPad Alpha',
+		'Extra Controls',
+		'Extra Control Location',
+		'Hitbox Design',
+		'Hitbox Opacity',
+		'Storage Type'
 	];
 
 	static var options:Array<String> = [
@@ -684,14 +717,19 @@ class PreferencesSubstate extends MusicBeatSubstate
 		'Middlescroll',
 		'Ghost Tapping',
 		'Note Delay',
+		'VirtualPad Alpha',
+		'Extra Controls',
+		'Extra Control Location',
+		'Hitbox Design',
+		'Hitbox Opacity',
+		'Storage Type',
 		'Note Splashes',
 		'Hide HUD',
 		'Hide Song Length',
 		'Flashing Lights',
-		'Camera Zooms'
-		#if !mobile
-		,'FPS Counter'
-		#end
+		'Camera Zooms',
+		'FPS Counter',
+		'Wide Screen Mode'
 	];
 
 	private var grpOptions:FlxTypedGroup<Alphabet>;
@@ -703,8 +741,18 @@ class PreferencesSubstate extends MusicBeatSubstate
 	private var showCharacter:Character = null;
 	private var descText:FlxText;
 
+	#if android
+	var storageTypes:Array<String> = ["EXTERNAL_DATA", "EXTERNAL", "EXTERNAL_OBB", "EXTERNAL_MEDIA"];
+	var externalPaths:Array<String> = StorageUtil.checkExternalPaths(true);
+	final lastStorageType:String = ClientPrefs.storageType;
+	#end
+
 	public function new()
 	{
+		#if android
+		storageTypes = storageTypes.concat(externalPaths); //SD Card
+		#end
+
 		super();
 		// avoids lagspikes while scrolling through menus!
 		showCharacter = new Character(840, 170, 'bf', true);
@@ -774,6 +822,7 @@ class PreferencesSubstate extends MusicBeatSubstate
 		}
 		changeSelection();
 		reloadValues();
+		addVirtualPad("FULL", "A_B_C");
 	}
 
 	var nextAccept:Int = 5;
@@ -849,6 +898,10 @@ class PreferencesSubstate extends MusicBeatSubstate
 					case 'Flashing Lights':
 						ClientPrefs.flashing = !ClientPrefs.flashing;
 
+					case 'Wide Screen Mode':
+						ClientPrefs.wideScreen = !ClientPrefs.wideScreen;
+						FlxG.scaleMode = new MobileScaleMode();
+
 					case 'Violence':
 						ClientPrefs.violence = !ClientPrefs.violence;
 
@@ -883,6 +936,7 @@ class PreferencesSubstate extends MusicBeatSubstate
 		} else {
 			if(controls.UI_LEFT || controls.UI_RIGHT) {
 				var add:Int = controls.UI_LEFT ? -1 : 1;
+				var addFloat:Float = controls.UI_LEFT ? -0.1 : 0.1;
 				if(holdTime > 0.5 || controls.UI_LEFT_P || controls.UI_RIGHT_P)
 				switch(options[curSelected]) {
 					case 'Framerate':
@@ -905,6 +959,27 @@ class PreferencesSubstate extends MusicBeatSubstate
 						ClientPrefs.noteOffset += add * mult;
 						if(ClientPrefs.noteOffset < 0) ClientPrefs.noteOffset = 0;
 						else if(ClientPrefs.noteOffset > 500) ClientPrefs.noteOffset = 500;
+
+					//String
+					case 'Hitbox Design':
+						createStringOption('hitboxtype', 'Gradient', ['Gradient', 'No Gradient' , 'No Gradient (Old)']);
+					case 'Extra Control Location':
+						createStringOption('hitboxLocation', 'Bottom', ['Bottom', 'Top', 'Middle']);
+					case 'Storage Type':
+						createStringOption('storageType', 'EXTERNAL_DATA', storageTypes);
+					case 'VirtualPad Alpha':
+						ClientPrefs.VirtualPadAlpha += addFloat;
+						if(ClientPrefs.VirtualPadAlpha < 0) ClientPrefs.VirtualPadAlpha = 0;
+						else if(ClientPrefs.VirtualPadAlpha > 1) ClientPrefs.VirtualPadAlpha = 1;
+						_virtualpad.alpha = getValue('VirtualPadAlpha');
+					case 'Hitbox Opacity':
+						ClientPrefs.hitboxalpha += addFloat;
+						if(ClientPrefs.hitboxalpha < 0) ClientPrefs.hitboxalpha = 0;
+						else if(ClientPrefs.hitboxalpha > 1) ClientPrefs.hitboxalpha = 1;
+					case 'Extra Controls':
+						ClientPrefs.extraKeys += add;
+						if(ClientPrefs.extraKeys < 0) ClientPrefs.extraKeys = 0;
+						else if(ClientPrefs.extraKeys > 4) ClientPrefs.extraKeys = 4;
 				}
 				reloadValues();
 
@@ -924,6 +999,39 @@ class PreferencesSubstate extends MusicBeatSubstate
 		}
 		super.update(elapsed);
 	}
+
+	dynamic public function getValue(variable:String):Dynamic
+		{
+			var value = Reflect.getProperty(ClientPrefs, variable);
+			return value;
+		}
+		
+		dynamic public function setValue(value:Dynamic, variable:String)
+		{
+			return Reflect.setProperty(ClientPrefs, variable, value);
+		}
+
+	function createStringOption(variable:String, defaultValue:Dynamic, curOptionArray:Array<String> = null) {
+		var curOption:Int = 0;
+		try
+		{
+			if(getValue(variable) == null) setValue(defaultValue, variable);
+			var num:Int = curOptionArray.indexOf(getValue(variable));
+			if(num > -1) curOption = num;
+		}
+		catch(e) {}
+		var num:Int = curOption; //lol
+		if(controls.UI_LEFT_P) --num;
+		else num++;
+
+		if(num < 0)
+			num = curOptionArray.length - 1;
+		else if(num >= curOptionArray.length)
+			num = 0;
+
+		curOption = num;
+		setValue(curOptionArray[num], variable);
+	}
 	
 	function changeSelection(change:Int = 0)
 	{
@@ -937,6 +1045,22 @@ class PreferencesSubstate extends MusicBeatSubstate
 
 		var daText:String = '';
 		switch(options[curSelected]) {
+			//Mobile
+			case 'VirtualPad Alpha':
+				daText = "Changes VirtualPad Alpha -cool feature";
+			case 'Extra Controls':
+				daText = "Allow Extra Controls";
+			case 'Extra Control Location':
+				daText = "Choose Extra Control Location";
+			case 'Hitbox Design':
+				daText = "Choose how your hitbox should look like.";
+			case 'Hitbox Opacity':
+				daText = "Changes hitbox opacity -omg";
+			case 'Wide Screen Mode':
+				daText = "If checked, The game will stetch to fill your whole screen. (WARNING: Can result in bad visuals & break some mods that resizes the game/cameras)";
+			case 'Storage Type':
+				daText = "Which folder Psych Engine should use?";
+
 			case 'Framerate':
 				daText = "Pretty self explanatory, isn't it?\nDefault value is 60.";
 			case 'Note Delay':
@@ -1007,6 +1131,14 @@ class PreferencesSubstate extends MusicBeatSubstate
 		FlxG.sound.play(Paths.sound('scrollMenu'));
 	}
 
+	#if android
+	function onStorageChange():Void
+	{
+		File.saveContent(lime.system.System.applicationStorageDirectory + 'storagetype.txt', ClientPrefs.storageType);   	
+		var lastStoragePath:String = StorageType.fromStrForce(lastStorageType) + '/';
+	}
+	#end
+
 	function reloadValues() {
 		for (i in 0...checkboxArray.length) {
 			var checkbox:CheckboxThingie = checkboxArray[i];
@@ -1041,6 +1173,8 @@ class PreferencesSubstate extends MusicBeatSubstate
 						daValue = ClientPrefs.imagesPersist;
 					case 'Hide Song Length':
 						daValue = ClientPrefs.hideTime;
+					case 'Wide Screen Mode':
+						daValue = ClientPrefs.wideScreen;
 				}
 				checkbox.daValue = daValue;
 			}
@@ -1054,6 +1188,18 @@ class PreferencesSubstate extends MusicBeatSubstate
 						daText = '' + ClientPrefs.framerate;
 					case 'Note Delay':
 						daText = ClientPrefs.noteOffset + 'ms';
+					case 'VirtualPad Alpha':
+						daText = '' + ClientPrefs.VirtualPadAlpha;
+					case 'Extra Controls':
+						daText = '' + ClientPrefs.extraKeys;
+					case 'Hitbox Opacity':
+						daText = '' + ClientPrefs.hitboxalpha;
+					case 'Hitbox Design':
+						daText = '' + ClientPrefs.hitboxtype;
+					case 'Extra Control Location':
+						daText = '' + ClientPrefs.hitboxLocation;
+					case 'Storage Type':
+						daText = '' + ClientPrefs.storageType;
 				}
 				var lastTracker:FlxSprite = text.sprTracker;
 				text.sprTracker = null;
@@ -1070,5 +1216,18 @@ class PreferencesSubstate extends MusicBeatSubstate
 			}
 		}
 		return options[num] == '';
+	}
+	
+	override public function destroy() {
+		super.destroy();
+			
+		#if android
+		if (ClientPrefs.storageType != lastStorageType) {
+			onStorageChange();
+			ClientPrefs.saveSettings();
+			CoolUtil.showPopUp('Storage Type has been changed and you needed restart the game!!\nPress OK to close the game.', 'Notice!');
+			lime.system.System.exit(0);
+		}
+		#end
 	}
 }

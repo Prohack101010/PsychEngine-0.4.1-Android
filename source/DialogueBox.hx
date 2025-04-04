@@ -183,7 +183,7 @@ class DialogueBox extends FlxSpriteGroup
 			dialogueStarted = true;
 		}
 
-		if(PlayerSettings.player1.controls.ACCEPT)
+		if(PlayerSettings.player1.controls.ACCEPT || TouchFunctions.touchJustPressed)
 		{
 			if (dialogueEnded)
 			{
@@ -227,7 +227,7 @@ class DialogueBox extends FlxSpriteGroup
 			{
 				FlxG.sound.play(Paths.sound('clickText'), 0.8);
 				swagDialogue.skip();
-				
+
 				if(skipDialogueThing != null) {
 					skipDialogueThing();
 				}

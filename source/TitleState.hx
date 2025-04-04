@@ -76,6 +76,7 @@ class TitleState extends MusicBeatState
 		FlxG.sound.volumeUpKeys = volumeUpKeys;
 
 		PlayerSettings.init();
+		MobileData.init();
 
 		curWacky = FlxG.random.getObject(getIntroTextShit());
 

@@ -26,10 +26,6 @@ class StrumNote extends FlxSprite
 				resetAnim = 0;
 			}
 		}
-		
-		/*if(animation.curAnim.name == 'confirm' && !PlayState.isPixelStage) {
-			updateConfirmOffset();
-		}*/
 
 		super.update(elapsed);
 	}
